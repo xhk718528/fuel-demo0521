@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>火电厂燃料管理系统</title>
+    <link rel="stylesheet" href="/static/dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <nav class="topnav">
+        <div class="nav-brand">
+            <span class="brand-icon">&#128293;</span>
+            <span class="brand-text">火电厂燃料管理系统</span>
+        </div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="dashboard">总览</button>
+            <button class="nav-tab" data-tab="inventory">库存管理</button>
+            <button class="nav-tab" data-tab="batches">批次管理</button>
+            <button class="nav-tab" data-tab="blending">掺配优化</button>
+            <button class="nav-tab" data-tab="alerts">预警中心</button>
+            <button class="nav-tab" data-tab="trace">全流程追溯</button>
+            <button class="nav-tab" data-tab="graph">知识图谱</button>
+        </div>
+        <div class="nav-actions">
+            <button class="chat-link chat-bubble-toggle" id="chatBubbleToggle" title="AI助手">💬</button>
+            <span class="health-dot" id="healthDot"></span>
+            <span class="health-text" id="healthText">连接中...</span>
+        </div>
+    </nav>
+
+    <main class="content">
+        <!-- 总览 -->
+        <section class="tab-panel active" id="panel-dashboard">
+            <div class="kpi-row" id="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-icon kpi-blue">&#128230;</div>
+                    <div class="kpi-body">
+                        <div class="kpi-value skeleton skeleton-block" style="width:60px;height:36px" id="kpi-piles-skel"></div>
+                        <div class="kpi-value" id="kpi-piles" style="display:none">0</div>
+                        <div class="kpi-label">煤堆总数</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon kpi-green">&#128176;</div>
+                    <div class="kpi-body">
+                        <div class="kpi-value skeleton skeleton-block" style="width:90px;height:36px" id="kpi-tonnage-skel"></div>
+                        <div class="kpi-value" id="kpi-tonnage" style="display:none">0</div>
+                        <div class="kpi-label">总库存(吨)</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon kpi-orange">&#128293;</div>
+                    <div class="kpi-body">
+                        <div class="kpi-value skeleton skeleton-block" style="width:80px;height:36px" id="kpi-heat-skel"></div>
+                        <div class="kpi-value" id="kpi-heat" style="display:none">0</div>
+                        <div class="kpi-label">加权平均热值</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon kpi-red">&#9888;</div>
+                    <div class="kpi-body">
+                        <div class="kpi-value skeleton skeleton-block" style="width:60px;height:36px" id="kpi-alerts-skel"></div>
+                        <div class="kpi-value" id="kpi-alerts" style="display:none">0</div>
+                        <div class="kpi-label">预警数量</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="panel">
+                    <h3 class="panel-title">煤堆库存一览</h3>
+                    <div class="table-wrap">
+                        <table class="data-table" id="dash-pile-table">
+                            <thead>
+                                <tr><th>煤堆名称</th><th>位置</th><th>库存(吨)</th><th>热值</th><th>硫分</th><th>温度</th><th>状态</th></tr>
+                            </thead>
+                            <tbody id="dash-pile-body">
+                            <tr><td colspan="7"><div class="skeleton skeleton-table-row"></div></td></tr>
+                            <tr><td colspan="7"><div class="skeleton skeleton-table-row"></div></td></tr>
+                            <tr><td colspan="7"><div class="skeleton skeleton-table-row"></div></td></tr>
+                            <tr><td colspan="7"><div class="skeleton skeleton-table-row"></div></td></tr>
+                        </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">最近掺配方案</h3>
+                    <div class="table-wrap">
+                        <table class="data-table" id="dash-blend-table">
+                            <thead>
+                                <tr><th>方案ID</th><th>时间</th><th>掺配比例</th><th>混合热值</th><th>混合硫分</th><th>总成本</th></tr>
+                            </thead>
+                            <tbody id="dash-blend-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="panel">
+                    <h3 class="panel-title">煤堆库存对比</h3>
+                    <div id="chart-inventory" style="width:100%;height:300px"></div>
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">煤堆温度与热值</h3>
+                    <div id="chart-temps" style="width:100%;height:300px"></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3 class="panel-title">供应商概况</h3>
+                <div class="supplier-cards" id="dash-suppliers"></div>
+            </div>
+        </section>
+
+        <!-- 库存管理 -->
+        <section class="tab-panel" id="panel-inventory">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">煤堆库存管理</h3>
+                    <button class="btn btn-primary" onclick="showAddPileModal()">+ 添加煤堆</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table" id="inventory-table">
+                        <thead>
+                            <tr><th>ID</th><th>名称</th><th>位置</th><th>库存(吨)</th><th>热值(kcal/kg)</th><th>硫分(%)</th><th>成本(元/吨)</th><th>当前温度(°C)</th><th>最高温度(°C)</th><th>状态</th><th>操作</th></tr>
+                        </thead>
+                        <tbody id="inventory-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 批次管理 -->
+        <section class="tab-panel" id="panel-batches">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">入厂煤批次管理</h3>
+                    <button class="btn btn-primary" onclick="showAddBatchModal()">+ 添加批次</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table" id="batches-table">
+                        <thead>
+                            <tr><th>批次ID</th><th>煤种</th><th>供应商</th><th>矿源</th><th>入厂日期</th><th>净重(吨)</th><th>申报热值</th><th>化验热值</th><th>热值差</th><th>申报硫分</th><th>化验硫分</th><th>成本</th><th>操作</th></tr>
+                        </thead>
+                        <tbody id="batches-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="panel" style="margin-top:16px">
+                <h3 class="panel-title">化验结果</h3>
+                <div class="table-wrap">
+                    <table class="data-table" id="lab-table">
+                        <thead>
+                            <tr><th>化验ID</th><th>批次</th><th>热值</th><th>硫分</th><th>灰分(%)</th><th>挥发分(%)</th><th>水分(%)</th><th>化验员</th><th>日期</th><th>是否合格</th></tr>
+                        </thead>
+                        <tbody id="lab-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 掺配优化 -->
+        <section class="tab-panel" id="panel-blending">
+            <div class="grid-2">
+                <div class="panel">
+                    <h3 class="panel-title">掺配优化计算</h3>
+                    <div class="form-group">
+                        <label>目标热值 (kcal/kg)</label>
+                        <input type="number" id="blend-heat" value="5000" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>目标硫分 (%)</label>
+                        <input type="number" id="blend-sulfur" value="0.7" step="0.01" class="form-input">
+                    </div>
+                    <button class="btn btn-primary" onclick="runBlendOptimization()">计算最优方案</button>
+                    <div id="blend-result" class="result-box" style="display:none"></div>
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">历史掺配方案</h3>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>方案ID</th><th>时间</th><th>掺配比例</th><th>混合热值</th><th>混合硫分</th><th>总成本</th></tr>
+                            </thead>
+                            <tbody id="blend-history-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 预警中心 -->
+        <section class="tab-panel" id="panel-alerts">
+            <div class="grid-2">
+                <div class="panel alert-panel">
+                    <h3 class="panel-title">&#128293; 自燃风险预警</h3>
+                    <div id="self-ignition-alerts"></div>
+                </div>
+                <div class="panel alert-panel">
+                    <h3 class="panel-title">&#9888; 煤质超标预警</h3>
+                    <div id="quality-alerts"></div>
+                </div>
+            </div>
+            <div class="panel" style="margin-top:16px">
+                <h3 class="panel-title">高风险煤堆详情</h3>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>煤堆ID</th><th>名称</th><th>当前温度</th><th>预警级别</th><th>库存(吨)</th></tr>
+                        </thead>
+                        <tbody id="high-risk-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 全流程追溯 -->
+        <section class="tab-panel" id="panel-trace">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">批次全流程追溯</h3>
+                    <div class="search-bar">
+                        <input type="text" id="trace-input" placeholder="输入批次ID，如 BATCH_001" class="form-input">
+                        <button class="btn btn-primary" onclick="runTrace()">追溯</button>
+                    </div>
+                </div>
+                <div id="trace-result"></div>
+            </div>
+        </section>
+
+        <!-- 知识图谱可视化 -->
+        <section class="tab-panel" id="panel-graph">
+            <div class="panel graph-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">🔗 燃料知识图谱可视化</h3>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <span style="font-size:12px;color:var(--text-secondary)" id="graph-stats"></span>
+                        <button class="btn btn-sm" onclick="toggleGraphLabels()">标签开关</button>
+                        <button class="btn btn-sm btn-primary" onclick="loadGraphData()">刷新</button>
+                    </div>
+                </div>
+                <div class="graph-container">
+                    <div id="graph-chart" style="width:100%;height:600px"></div>
+                    <div id="graph-node-info" class="graph-node-info" style="display:none">
+                        <div class="graph-node-info-header">
+                            <span id="graph-node-title"></span>
+                            <button class="btn-close" onclick="document.getElementById('graph-node-info').style.display='none'">&times;</button>
+                        </div>
+                        <div id="graph-node-props"></div>
+                    </div>
+                </div>
+                <div class="graph-legend-panel" id="graph-legend-panel"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 添加煤堆弹窗 -->
+    <div class="modal-overlay" id="addPileModal" style="display:none">
+        <div class="modal">
+            <h3>添加新煤堆</h3>
+            <div class="form-group"><label>名称</label><input type="text" id="pile-name" class="form-input" placeholder="如：南区3号垛"></div>
+            <div class="form-group"><label>热值 (kcal/kg)</label><input type="number" id="pile-heat" class="form-input"></div>
+            <div class="form-group"><label>硫分 (%)</label><input type="number" id="pile-sulfur" class="form-input" step="0.01"></div>
+            <div class="form-group"><label>成本 (元/吨)</label><input type="number" id="pile-cost" class="form-input"></div>
+            <div class="form-group"><label>库存 (吨)</label><input type="number" id="pile-remain" class="form-input"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('addPileModal')">取消</button>
+                <button class="btn btn-primary" onclick="addPile()">确认添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加批次弹窗 -->
+    <div class="modal-overlay" id="addBatchModal" style="display:none">
+        <div class="modal">
+            <h3>添加入厂煤批次</h3>
+            <div class="form-group"><label>供应商ID</label><select id="batch-supplier" class="form-input"><option value="sup_001">晋能控股</option><option value="sup_002">中煤集团</option><option value="sup_003">陕西煤业</option><option value="sup_004">地方小窑</option></select></div>
+            <div class="form-group"><label>煤种</label><input type="text" id="batch-type" class="form-input" placeholder="如：优混煤"></div>
+            <div class="form-group"><label>矿源</label><input type="text" id="batch-origin" class="form-input" placeholder="如：大同"></div>
+            <div class="form-group"><label>入厂日期</label><input type="date" id="batch-date" class="form-input"></div>
+            <div class="form-group"><label>毛重(吨)</label><input type="number" id="batch-gross" class="form-input"></div>
+            <div class="form-group"><label>净重(吨)</label><input type="number" id="batch-net" class="form-input"></div>
+            <div class="form-group"><label>申报热值</label><input type="number" id="batch-heat" class="form-input"></div>
+            <div class="form-group"><label>申报硫分</label><input type="number" id="batch-sulfur" class="form-input" step="0.01"></div>
+            <div class="form-group"><label>成本(元/吨)</label><input type="number" id="batch-cost" class="form-input"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('addBatchModal')">取消</button>
+                <button class="btn btn-primary" onclick="addBatch()">确认添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div class="modal-overlay" id="detailModal" style="display:none">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 id="detailTitle">详情</h3>
+                <button class="btn-close" onclick="closeModal('detailModal')">&times;</button>
+            </div>
+            <div id="detailContent"></div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- AI Chat Bubble (popup) -->
+    <div class="ai-chat-bubble" id="aiChatBubble" style="display:none">
+        <div class="ai-chat-bubble-header">
+            <div class="ai-chat-bubble-title">
+                <span>燃料管理助手</span>
+                <span class="ai-chat-status-dot" id="aiChatStatusDot"></span>
+            </div>
+            <button class="ai-chat-bubble-close" id="aiChatBubbleClose">&times;</button>
+        </div>
+        <div class="ai-chat-bubble-messages" id="aiChatMessages">
+            <div class="ai-chat-welcome" id="aiChatWelcome">
+                <div class="ai-chat-welcome-icon">🤖</div>
+                <p>我是燃料管理助手，请问有什么可以帮您？</p>
+            </div>
+        </div>
+        <div class="ai-chat-bubble-status" id="aiChatStatusBar" style="display:none;">
+            <span class="ai-chat-status-dot"></span>
+            <span id="aiChatStatusText">思考中...</span>
+        </div>
+        <div class="ai-chat-bubble-input">
+            <textarea id="aiChatInput" placeholder="输入您的问题..." rows="1"></textarea>
+            <button class="ai-chat-send-btn" id="aiChatSendBtn" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+        </div>
+    </div>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>
