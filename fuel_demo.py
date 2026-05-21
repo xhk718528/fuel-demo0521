@@ -13,9 +13,10 @@ from pathlib import Path
 from neo4j import GraphDatabase
 
 # ==================== Neo4j 连接配置 ====================
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://127.0.0.1:7689")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD=os.getenv("NEO4J_PASSWORD", "password123")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password123")
+NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "fuel")
 
 
 # 全局单例，避免每个请求创建新连接
@@ -79,8 +80,9 @@ class FuelKnowledgeGraph:
     def _get_driver(self):
         if self._driver is None:
             self._driver = GraphDatabase.driver(
-                NEO4J_URI, 
-                auth=(NEO4J_USER, NEO4J_PASSWORD)
+                NEO4J_URI,
+                auth=(NEO4J_USER, NEO4J_PASSWORD),
+                database=NEO4J_DATABASE
             )
         return self._driver
     
@@ -932,7 +934,7 @@ class FuelKnowledgeGraph:
             return
         
         print("[KG] 演示数据需要通过Cypher脚本初始化")
-        print("[KG] 请执行: docker exec -i neo4j-demo bin/cypher-shell -u neo4j -p password123 < init_demo_data.cypher")
+        print(f"[KG] 请执行: cypher-shell -a {NEO4J_URI} -u {NEO4J_USER} -p *** < init_data.cypher")
 
 
 # ==================== 初始化函数 ====================
